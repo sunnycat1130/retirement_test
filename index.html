@@ -1151,13 +1151,36 @@
 
 
 <script>
-    // 勞退月退係數表（依勞保局官網實際試算結果反推，共11組驗證，全部吻合）
-    const OfficialFactors = {
-        60: 242.8756, 61: 242.8658, 62: 233.5842, 63: 224.1901,
-        64: 214.6844, 65: 205.0802, 66: 205.0781, 67: 195.3583,
-        68: 185.5288, 69: 175.5767, 70: 175.5823
-    };
-    const LifeExpectancyTable = { 60: 23, 61: 23, 62: 22, 63: 21, 64: 20, 65: 19, 66: 18, 67: 18, 68: 17, 69: 16, 70: 15 };
+    // 平均餘命對照表（依勞保局官方 fee26.js，2024/03/01 後版本）
+    // ex1：整數年（畫面顯示用）；exs：精算小數值（計算月退金用）
+    // 索引 0 = 60歲，1 = 61歲，…，25 = 85歲以上
+    const ex1 = [23,23,22,21,20,19,19,18,17,16,16,15,14,13,13,12,11,11,10,9,9,8,8,7,6,6];
+    const exs  = [23.47,22.65,21.83,21.02,20.21,19.41,18.62,17.84,17.06,16.30,15.55,14.82,14.10,13.39,12.70,12.02,11.35,10.70,10.06,9.44,8.82,8.21,7.62,7.03,6.44,5.85];
+    const PENSION_RATE = 0.011473; // 現行利率 1.1473%（2024/03/01 起）
+
+    // 官方精算公式（對應 fee26.js calcTirePay）
+    // 月退金 = 帳戶金額 ÷ factor ÷ 12
+    function calcMonthlyPension(fund, lifeYearDecimal) {
+        if (lifeYearDecimal <= 0 || fund <= 0) return 0;
+        const a = 1 - Math.pow(1 / (1 + PENSION_RATE), lifeYearDecimal);
+        const b = Math.pow((1 + PENSION_RATE), 1 / 12);
+        const c = 12 * (b - 1);
+        const factor = (a / c) * b;
+        return Math.round(fund / factor / 12);
+    }
+
+    // 依請領年齡取平均餘命（整數：顯示用；小數：計算用）
+    function getLifeExpectancy(claimAge) {
+        if (claimAge < 60) return null;
+        const idx = claimAge >= 85 ? 25 : Math.min(claimAge - 60, 25);
+        return { display: ex1[idx], precise: exs[idx] };
+    }
+
+    // 保留 LifeExpectancyTable 名稱供舊有顯示邏輯相容（整數顯示用）
+    function getLifeExpDisplay(claimAge) {
+        const le = getLifeExpectancy(claimAge);
+        return le ? le.display : '--';
+    }
     let dataFromStage1 = { laboMonthly: 0, pensionMonthly: 0, claimAge: 0, f1: 0, f2: 0, onceAmt: '', lifeExp: 0, seniority: '' };
     let stage2Data = { need: 0, existing: 0, gap: 0 };
 
@@ -1208,9 +1231,10 @@
         const mA = parseInt(document.getElementById('monthsAfter60').value) || 0;
 
         if (!birthYear || !claimY) { alert("請填妥資料。"); return; }
-        if (claimY < 60 || claimY > 70) { alert("預計請領年齡目前支援 60～70 歲，請重新確認。"); return; }
 
-        // 對照投保薪資分級表
+        // ⚠️ [待討論 - 第四項] 目前假設使用者輸入「月薪資總額」並自動換算至投保薪資級距
+        // 官方邏輯是使用者直接填入已知的「月投保薪資」，不做分級換算
+        // 待確認欄位設計後決定是否改為直接使用輸入值（同官方）
         const avgSalary60 = toInsuredSalary(rawSalary60);
         const avgSalary3y = toInsuredSalary(rawSalary3y);
 
@@ -1226,7 +1250,7 @@
         // 展延/減給比率：每年 ±4%，上限 ±5 年（即 ±20%）
         const rawAdjYears = ((claimY - legalAge) * 12 + claimM) / 12;
         const adjYears = Math.max(-5, Math.min(5, rawAdjYears)); // 限制在 -5 ~ +5 年
-        const adjRate = parseFloat((adjYears * 0.04).toFixed(4));  // 每年 4%，保留4位精度
+        const adjRate = parseFloat((adjYears * 0.04).toFixed(2));  // 每年 4%，與官方 FormatNumber(x,2) 一致
         const finalMultiplier = 1 + adjRate;                      // 範圍：0.80 ~ 1.20
 
         const f1 = Math.round(((avgSalary60 * seniorityDecimal * 0.00775) + 3000) * finalMultiplier);
@@ -1271,17 +1295,17 @@
         const onceAmt = Math.round(q_money).toLocaleString() + " 元";
         document.getElementById('resOnce').innerText = onceAmt;
 
-        let factor = OfficialFactors[claimY] || 205.0802;
-        const monthlyFund = Math.round(fund / factor);
+        const lifeExp = getLifeExpectancy(claimY);
+        const lifeExpDisplay = lifeExp ? lifeExp.display : '--';
+        const monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.precise) : 0;
         document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
         document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
         document.getElementById('resClaimAge').innerText = claimY + " 歲";
-        const lifeExp = LifeExpectancyTable[claimY] || '--';
-        document.getElementById('resLife').innerText = lifeExp + " 年";
+        document.getElementById('resLife').innerText = lifeExpDisplay + " 年";
 
         dataFromStage1 = {
             laboMonthly: betterLabo, pensionMonthly: monthlyFund, claimAge: claimY,
-            f1, f2, onceAmt, lifeExp,
+            f1, f2, onceAmt, lifeExp: lifeExpDisplay,
             seniority: seniorityStr,
             birthYear,
             avgSalary60: rawSalary60, avgSalary60Insured: avgSalary60,
@@ -1298,18 +1322,10 @@
         document.getElementById('imgRetireAge').innerText = dataFromStage1.claimAge;
         document.getElementById('imgLaboMonthly').innerText = dataFromStage1.laboMonthly.toLocaleString();
         document.getElementById('imgPensionQuart').innerText = (dataFromStage1.pensionMonthly * 3).toLocaleString();
-        // 重置 T字帳引導狀態（避免回到此頁時直接全顯示）
-        ['tRow1L','tRow2L','tRow3L','tRow1R','tRow2R','tRow3R'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.opacity = '0';
-        });
-        const btnAlt = document.getElementById('btnAltWay');
-        if (btnAlt) btnAlt.classList.add('opacity-40');
         updatePlanningLogic();
     }
     function switchToStage3() {
         if (dataFromStage1.claimAge === 0) { alert("請先完成第一階段。"); return; }
-        if (stage2Data.need === 0) { alert("請先完成第二階段（退休缺口深度規劃），填入需求資料後再進行預算規劃。"); return; }
         hideAll(); document.getElementById('stage3').classList.remove('hidden'); setActive('tab3');
         updateStage3Visuals();
     }
@@ -1344,10 +1360,7 @@
         const otherN = parseFloat(document.getElementById('otherNeed').value) || 0;
         const totalDemandVal = Math.round(mLiving + loan + med + dream + otherN);
 
-        // 勞保年金：月領×12；勞退退休金：季發（月退×3）×4季，兩者皆至 85 歲
-        const laboAnnual    = dataFromStage1.laboMonthly * 12;
-        const pensionAnnual = dataFromStage1.pensionMonthly * 3 * 4;
-        const govTotal = (laboAnnual + pensionAnnual) * yearsUntil85 / 10000;
+        const govTotal = (dataFromStage1.laboMonthly + dataFromStage1.pensionMonthly) * 12 * yearsUntil85 / 10000;
         const personal = parseFloat(document.getElementById('personalAsset').value) || 0;
         const totalExistingVal = Math.round(govTotal + personal);
         const gapVal = Math.max(0, totalDemandVal - totalExistingVal);
@@ -1399,29 +1412,23 @@
         document.getElementById('cylWater').setAttribute('height', waterH);
     }
 
-    function setText(id, val) {
-        const el = document.getElementById(id);
-        if (el) el.innerText = val;
-    }
-
     /* ======================================================
-       generatePDF：統一填充報告模板並觸發列印
-       （已合併原 fillReportTemplate 的完整邏輯，消除重複）
+       填充報告模板數據
     ====================================================== */
-    function generatePDF() {
-        // 填入日期
+    function fillReportTemplate() {
         const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
         ['rpt-date','rpt-date-p3','rpt-disclaimer-date'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerText = today;
         });
 
-        // 填入客戶姓名
-        const surname = (document.getElementById('clientSurname') || {}).value?.trim() || '';
-        const title = (document.getElementById('clientTitle') || {}).value || '先生';
-        setText('rpt-client-name', surname ? surname + ' ' + title : '（未填寫）');
+        // 客戶稱謂
+        const surname = document.getElementById('clientSurname').value.trim();
+        const title = document.getElementById('clientTitle').value;
+        const clientName = surname ? surname + ' ' + title : '（未填寫）';
+        setText('rpt-client-name', clientName);
 
-        // ── 第一頁：基本資料 ──
+        // 第一頁
         setText('rpt-birth', (dataFromStage1.birthYear || '--') + ' 年');
         setText('rpt-claim-age', dataFromStage1.claimAgeStr || '--');
         setText('rpt-seniority', dataFromStage1.seniority || '--');
@@ -1435,15 +1442,15 @@
         setText('rpt-monthly-pension', dataFromStage1.pensionMonthly ? dataFromStage1.pensionMonthly.toLocaleString() : '--');
         setText('rpt-quarterly-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '--');
 
-        // 擇優式高亮（使用 fillReportTemplate 的完整版，含 borderRadius 修正）
-        const f1v = dataFromStage1.f1 || 0;
-        const f2v = dataFromStage1.f2 || 0;
+        // 擇優式視覺凸顯
+        const f1 = dataFromStage1.f1 || 0;
+        const f2 = dataFromStage1.f2 || 0;
         const f1Cell = document.getElementById('rpt-f1-cell');
         const f2Cell = document.getElementById('rpt-f2-cell');
         const f1Badge = document.getElementById('rpt-f1-badge');
         const f2Badge = document.getElementById('rpt-f2-badge');
-        if (f1Cell && f2Cell && f1v > 0 && f2v > 0) {
-            if (f1v >= f2v) {
+        if (f1Cell && f2Cell && f1 > 0 && f2 > 0) {
+            if (f1 >= f2) {
                 f1Cell.style.background = '#f0faf7';
                 f1Cell.style.borderRadius = '0';
                 document.getElementById('rpt-f1').style.color = '#00847b';
@@ -1458,7 +1465,121 @@
             }
         }
 
-        // ── 第二頁：缺口規劃 ──
+        // 第二頁
+        setText('rpt-retire-age-p2', dataFromStage1.claimAge || '--');
+        const need = stage2Data.need || 0;
+        const existing = stage2Data.existing || 0;
+        const gap = stage2Data.gap || 0;
+        const pct = need > 0 ? Math.min(100, Math.round((existing / need) * 100)) : 0;
+        setText('rpt-p2-demand', need.toLocaleString());
+        setText('rpt-p2-existing', existing.toLocaleString());
+        setText('rpt-p2-gap', gap.toLocaleString());
+        setText('rpt-d-living', stage2Data.living || 0);
+        setText('rpt-d-loan', stage2Data.loan || 0);
+        setText('rpt-d-med', stage2Data.med || 0);
+        setText('rpt-d-dream', stage2Data.dream || 0);
+        setText('rpt-d-other', stage2Data.otherN || 0);
+        setText('rpt-d-total', need.toLocaleString());
+        setText('rpt-e-labo', dataFromStage1.laboMonthly.toLocaleString());
+        setText('rpt-e-pension', (dataFromStage1.pensionMonthly * 3).toLocaleString());
+        setText('rpt-e-gov-total', (stage2Data.govTotal || 0).toLocaleString());
+        setText('rpt-e-personal', (stage2Data.personal || 0).toLocaleString());
+        setText('rpt-e-total', existing.toLocaleString());
+        setText('rpt-progress-pct', pct + '%');
+        const bar = document.getElementById('rpt-progress-bar');
+        if (bar) bar.style.width = pct + '%';
+        const prepY = stage2Data.prepYears || 0;
+        const yearlyVal = prepY > 0 ? (gap / prepY).toFixed(1) : '0';
+        const monthlyVal = prepY > 0 ? (gap / prepY / 12).toFixed(2) : '0';
+        setText('rpt-plan-years', prepY);
+        setText('rpt-plan-yearly', yearlyVal);
+        setText('rpt-plan-monthly', monthlyVal);
+        setText('rpt-alt-years', prepY);
+        setText('rpt-alt-monthly-ref', monthlyVal);
+        // T字帳靜態版
+        setText('rpt-t-years-l', prepY);
+        setText('rpt-t-years-l2', prepY);
+        setText('rpt-t-years-l3', prepY);
+        setText('rpt-t-years-r', prepY);
+        setText('rpt-t-yearly', yearlyVal);
+        setText('rpt-t-monthly-l', monthlyVal);
+        setText('rpt-t-monthly-r', monthlyVal);
+
+        // 第三頁
+        const budget = document.getElementById('finalBudgetChoice').value || '0';
+        setText('rpt-budget', parseInt(budget).toLocaleString());
+        setText('rpt-p3-need', need.toLocaleString());
+        setText('rpt-p3-existing', existing.toLocaleString());
+        setText('rpt-p3-gap', gap.toLocaleString());
+        setText('rpt-p3-pct', pct + '%');
+        const p3bar = document.getElementById('rpt-p3-bar');
+        if (p3bar) p3bar.style.width = pct + '%';
+        // 圓柱
+        const waterH = Math.min(260, Math.round((pct / 100) * 260));
+        const cylW = document.getElementById('rpt-cyl-water');
+        if (cylW) { cylW.setAttribute('y', 280 - waterH); cylW.setAttribute('height', waterH); }
+        const cylPct = document.getElementById('rpt-cyl-pct');
+        if (cylPct) cylPct.textContent = pct + '%';
+    }
+
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+    }
+
+    function generatePDF() {
+        // 填入日期
+        const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+        ['rpt-date','rpt-date-p3','rpt-disclaimer-date'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = today;
+        });
+
+        // 填入客戶姓名
+        const surnameEl = document.getElementById('clientSurname');
+        const titleEl = document.getElementById('clientTitle');
+        if (surnameEl && titleEl) {
+            const surname = surnameEl.value.trim();
+            const title = titleEl.value;
+            setText('rpt-client-name', surname ? surname + ' ' + title : '（未填寫）');
+        }
+
+        // 填入第一頁基本資料
+        setText('rpt-birth', (dataFromStage1.birthYear || '--') + ' 年');
+        setText('rpt-claim-age', dataFromStage1.claimAgeStr || '--');
+        setText('rpt-seniority', dataFromStage1.seniority || '--');
+        setText('rpt-life-exp', dataFromStage1.lifeExp ? dataFromStage1.lifeExp + ' 年' : '--');
+        setText('rpt-salary60', dataFromStage1.avgSalary60Insured ? dataFromStage1.avgSalary60Insured.toLocaleString() + ' 元' : '--');
+        setText('rpt-salary3y', dataFromStage1.avgSalary3yInsured ? dataFromStage1.avgSalary3yInsured.toLocaleString() + ' 元' : '--');
+        setText('rpt-fund', dataFromStage1.fund ? dataFromStage1.fund.toLocaleString() : '--');
+        setText('rpt-f1', dataFromStage1.f1 ? dataFromStage1.f1.toLocaleString() : '--');
+        setText('rpt-f2', dataFromStage1.f2 ? dataFromStage1.f2.toLocaleString() : '--');
+        setText('rpt-once', dataFromStage1.onceAmt || '--');
+        setText('rpt-monthly-pension', dataFromStage1.pensionMonthly ? dataFromStage1.pensionMonthly.toLocaleString() : '--');
+        setText('rpt-quarterly-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '--');
+
+        // 擇優式高亮
+        const f1v = dataFromStage1.f1 || 0;
+        const f2v = dataFromStage1.f2 || 0;
+        const f1Cell = document.getElementById('rpt-f1-cell');
+        const f2Cell = document.getElementById('rpt-f2-cell');
+        const f1Badge = document.getElementById('rpt-f1-badge');
+        const f2Badge = document.getElementById('rpt-f2-badge');
+        if (f1Cell && f2Cell && f1v > 0 && f2v > 0) {
+            if (f1v >= f2v) {
+                f1Cell.style.background = '#f0faf7';
+                document.getElementById('rpt-f1').style.color = '#00847b';
+                if (f1Badge) f1Badge.style.display = 'inline-block';
+                document.getElementById('rpt-f2').style.color = '#475569';
+            } else {
+                f2Cell.style.background = '#f0faf7';
+                document.getElementById('rpt-f2').style.color = '#00847b';
+                if (f2Badge) f2Badge.style.display = 'inline-block';
+                document.getElementById('rpt-f1').style.color = '#475569';
+            }
+        }
+
+        // 填入第二頁
         const need = stage2Data.need || 0;
         const existing = stage2Data.existing || 0;
         const gap = stage2Data.gap || 0;
@@ -1497,7 +1618,7 @@
         setText('rpt-t-monthly-l', monthlyVal);
         setText('rpt-t-monthly-r', monthlyVal);
 
-        // ── 第三頁：預算規劃 ──
+        // 填入第三頁
         const budgetEl = document.getElementById('finalBudgetChoice');
         setText('rpt-budget', budgetEl ? parseInt(budgetEl.value || 0).toLocaleString() : '0');
         setText('rpt-p3-need', need.toLocaleString());
@@ -1506,20 +1627,17 @@
         setText('rpt-p3-pct', pct + '%');
         const p3bar = document.getElementById('rpt-p3-bar');
         if (p3bar) p3bar.style.width = pct + '%';
-        // 圓柱（報告靜態版，不需 transition）
         const waterH = Math.min(260, Math.round((pct / 100) * 260));
         const cylW = document.getElementById('rpt-cyl-water');
-        if (cylW) {
-            cylW.style.transition = 'none';
-            cylW.setAttribute('y', 280 - waterH);
-            cylW.setAttribute('height', waterH);
-        }
+        if (cylW) { cylW.setAttribute('y', 280 - waterH); cylW.setAttribute('height', waterH); }
         const cylPct = document.getElementById('rpt-cyl-pct');
         if (cylPct) cylPct.textContent = pct + '%';
 
         // 動態設定標題作為 PDF 檔名
+        const surnameForTitle = document.getElementById('clientSurname') ? document.getElementById('clientSurname').value.trim() : '';
+        const titleForTitle = document.getElementById('clientTitle') ? document.getElementById('clientTitle').value : '先生';
         const originalTitle = document.title;
-        document.title = surname ? (surname + title + '退休規劃分析書') : '退休規劃分析書';
+        document.title = surnameForTitle ? (surnameForTitle + titleForTitle + '退休規劃分析書') : '退休規劃分析書';
 
         setTimeout(() => {
             window.print();
