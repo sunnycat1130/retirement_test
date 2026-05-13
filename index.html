@@ -357,10 +357,15 @@
                     <div>
                         <label class="label-text">預計請領歲 / 月：</label>
                         <div class="grid grid-cols-2 gap-1.5">
-                            <input type="number" id="claimAgeYear" placeholder="歲" class="input-box">
+                            <input type="number" id="claimAgeYear" placeholder="歲" class="input-box" oninput="onClaimAgeInput()">
                             <select id="claimAgeMonth" class="input-box"><script>for(let i=0; i<=11; i++) document.write(`<option value="${i}">${i < 10 ? '0'+i : i}</option>`);</script></select>
                         </div>
                         <div id="legalAgeHint" class="mt-1 text-[10px] font-bold text-bli-green bg-green-50 border border-green-200 rounded px-2 py-0.5 hidden">📌 您的法定請領年齡為 <span id="legalAgeVal">--</span> 歲</div>
+                        <!-- 未滿60歲時顯示：預估請領年限 -->
+                        <div id="divPensionYear" class="hidden mt-1.5">
+                            <label class="label-text text-orange-600 font-bold">預估請領年限（未滿60歲請填）：</label>
+                            <input type="number" id="txbPensionYear" placeholder="年" class="input-box border-orange-400" min="1">
+                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -412,6 +417,8 @@
                             <div id="resOnce" class="text-lg font-black text-gray-800">--</div>
                         </div>
                     </div>
+                    <!-- 一次金警語區 -->
+                    <div id="msgOnce" class="hidden px-3 py-1.5 text-[10px] text-amber-700 bg-amber-50 border-t border-amber-200"></div>
 
                     <!-- 選擇二：年金 -->
                     <div class="px-3 py-2.5 bg-white">
@@ -438,6 +445,8 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 年金警語區 -->
+                        <div id="msgOldPay" class="hidden mt-2 text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5"></div>
                     </div>
                 </div>
 
@@ -470,6 +479,10 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 勞退警語區 -->
+                        <div id="msgPension" class="hidden mt-2 text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5"></div>
+                        <!-- 勞退未滿60歲附加說明（B類：照算但加警語） -->
+                        <div id="msgPensionUnder60" class="hidden mt-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
                     </div>
                 </div>
 
@@ -1194,7 +1207,34 @@
         document.getElementById('dispTotalM').innerText = totalM % 12;
     }
 
-    // 勞工保險投保薪資分級表（月薪資總額上限 → 月投保薪資）
+    // 預計請領年齡即時聯動（同官方邏輯）
+    function onClaimAgeInput() {
+        const ageVal = parseInt(document.getElementById('claimAgeYear').value);
+        const after60Y = document.getElementById('yearsAfter60');
+        const after60M = document.getElementById('monthsAfter60');
+        const divPensionYear = document.getElementById('divPensionYear');
+
+        if (!isNaN(ageVal) && ageVal < 60) {
+            // 未滿60歲：鎖住60歲後年資欄位並歸零
+            after60Y.disabled = true;
+            after60M.disabled = true;
+            after60Y.value = '';
+            after60M.value = '0';
+            // 顯示「預估請領年限」欄位
+            divPensionYear.classList.remove('hidden');
+        } else {
+            // 60歲以上：開放60歲後年資欄位
+            after60Y.disabled = false;
+            after60M.disabled = false;
+            // 隱藏「預估請領年限」欄位並清空
+            divPensionYear.classList.add('hidden');
+            document.getElementById('txbPensionYear').value = '';
+        }
+        updateTotalSeniority();
+        updateLegalAge();
+    }
+
+
     // 依 114年11月21日勞動部令，自115年1月1日施行
     const InsuranceSalaryGrades = [
         { max: 29500,  insured: 29500 },
@@ -1232,6 +1272,17 @@
 
         if (!birthYear || !claimY) { alert("請填妥資料。"); return; }
 
+        // 出生年度字元長度限制（民國年最多3碼）
+        if (document.getElementById('birthYear').value.length > 3) {
+            alert("出生年度（民國）請勿超過3位數。"); return;
+        }
+        // 請領年齡字元長度限制（最多3碼）
+        if (document.getElementById('claimAgeYear').value.length > 3) {
+            alert("預計請領年齡請勿超過3位數。"); return;
+        }
+        // 60歲前年資上限99年
+        if (yB > 99) { alert("滿60歲前保險年資不可超過99年。"); return; }
+
         // ⚠️ [待討論 - 第四項] 目前假設使用者輸入「月薪資總額」並自動換算至投保薪資級距
         // 官方邏輯是使用者直接填入已知的「月投保薪資」，不做分級換算
         // 待確認欄位設計後決定是否改為直接使用輸入值（同官方）
@@ -1241,71 +1292,168 @@
         document.getElementById('placeholderMsg').classList.add('hidden');
         document.getElementById('realResults').classList.remove('hidden');
 
+        // 清空所有警語
+        ['msgOnce','msgOldPay','msgPension','msgPensionUnder60'].forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.add('hidden');
+            el.innerHTML = '';
+        });
+
+        // ── 年資計算 ──
         const totalMonthsAll = mB + mA;
         const yearPart = (yB + yA) + Math.floor(totalMonthsAll / 12);
         const seniorityDecimal = yearPart + (Math.round(((totalMonthsAll % 12) / 12) * 100) / 100);
         const seniorityStr = yearPart + ' 年 ' + (totalMonthsAll % 12) + ' 月';
+        const totalYear = yearPart;
         const legalAge = (birthYear <= 46) ? 60 : (birthYear == 47 ? 61 : (birthYear == 48 ? 62 : (birthYear == 49 ? 63 : (birthYear == 50 ? 64 : 65))));
 
-        // 展延/減給比率：每年 ±4%，上限 ±5 年（即 ±20%）
+        // ── 展延/減給比率 ──
         const rawAdjYears = ((claimY - legalAge) * 12 + claimM) / 12;
-        const adjYears = Math.max(-5, Math.min(5, rawAdjYears)); // 限制在 -5 ~ +5 年
-        const adjRate = parseFloat((adjYears * 0.04).toFixed(2));  // 每年 4%，與官方 FormatNumber(x,2) 一致
-        const finalMultiplier = 1 + adjRate;                      // 範圍：0.80 ~ 1.20
+        const adjYears = Math.max(-5, Math.min(5, rawAdjYears));
+        const adjRate = parseFloat((adjYears * 0.04).toFixed(2));
+        const finalMultiplier = 1 + adjRate;
 
-        const f1 = Math.round(((avgSalary60 * seniorityDecimal * 0.00775) + 3000) * finalMultiplier);
-        const f2 = Math.round((avgSalary60 * seniorityDecimal * 0.0155) * finalMultiplier);
-        const betterLabo = Math.max(f1, f2);
-
-        document.getElementById('resFormula1').innerText = f1.toLocaleString();
-        document.getElementById('resFormula2').innerText = f2.toLocaleString();
-        document.getElementById('formula1Container').classList.toggle('is-winner', f1 >= f2);
-        document.getElementById('formula2Container').classList.toggle('is-winner', f2 > f1);
-
-        // 一次請領給付計算（官方原始碼邏輯，使用 efv 月份對照表）
-        const efv = [0, 0.08, 0.17, 0.25, 0.33, 0.42, 0.5, 0.58, 0.67, 0.75, 0.83, 0.92];
-        let oA = yB, oE = mB, oB = yA, oF = mA;
-        let q_money = 0;
-
-        if (oB === 0 && oF === 0) {
-            // 只有60歲前年資
-            const Ev = efv[oE];
-            if (oA < 15)          q_money = (oA + Ev) * avgSalary3y;
-            else if (oA < 30)     q_money = (15 + parseFloat(((oA + Ev - 15).toFixed(2)) * 2)) * avgSalary3y;
-            else                  q_money = 45 * avgSalary3y;
-        } else {
-            // 有60歲後年資
-            if (oA >= 30) { oA = 30; oE = 0; }
-            if (oB >= 5)  { oB = 5;  oF = 0; }
-            let Ey, Em;
-            if (oE + oF >= 12) {
-                Ey = oA + oB + 1;
-                Em = efv[oE + oF - 12];
-            } else {
-                Ey = oA + oB;
-                Em = efv[oE + oF] !== undefined ? efv[oE + oF] : 0;
-            }
-            if ((Ey + Em) >= 15) {
-                const Eym = 15 + parseFloat(((Ey + Em) - 15).toFixed(2)) * 2;
-                q_money = (Eym >= 50) ? 50 * avgSalary3y : Eym * avgSalary3y;
-            } else {
-                q_money = (Ey + Em) * avgSalary3y;
-            }
+        // ═══════════════════════════════════
+        // A. 一次請領老年給付
+        // ═══════════════════════════════════
+        let onetimeCal = true;
+        // 資格判斷（年齡×年資矩陣，同官方）
+        if (claimY < 50 ||
+            (claimY >= 50 && claimY < 55 && totalYear < 25) ||
+            (claimY >= 55 && claimY < 60 && totalYear < 15) ||
+            (claimY >= 60 && totalYear < 1)) {
+            onetimeCal = false;
+            const msgOnceEl = document.getElementById('msgOnce');
+            msgOnceEl.innerHTML = '⚠️ 依您所輸入的年齡與年資，不符合一次請領老年給付條件。';
+            msgOnceEl.classList.remove('hidden');
+            document.getElementById('resOnce').innerText = '--';
         }
-        const onceAmt = Math.round(q_money).toLocaleString() + " 元";
-        document.getElementById('resOnce').innerText = onceAmt;
 
+        if (onetimeCal) {
+            const efv = [0, 0.08, 0.17, 0.25, 0.33, 0.42, 0.5, 0.58, 0.67, 0.75, 0.83, 0.92];
+            let oA = yB, oE = mB, oB = yA, oF = mA;
+            let q_money = 0;
+            if (oB === 0 && oF === 0) {
+                const Ev = efv[oE];
+                if (oA < 15)          q_money = (oA + Ev) * avgSalary3y;
+                else if (oA < 30)     q_money = (15 + parseFloat(((oA + Ev - 15).toFixed(2)) * 2)) * avgSalary3y;
+                else                  q_money = 45 * avgSalary3y;
+            } else {
+                if (oA >= 30) { oA = 30; oE = 0; }
+                if (oB >= 5)  { oB = 5;  oF = 0; }
+                let Ey, Em;
+                if (oE + oF >= 12) {
+                    Ey = oA + oB + 1;
+                    Em = efv[oE + oF - 12];
+                } else {
+                    Ey = oA + oB;
+                    Em = efv[oE + oF] !== undefined ? efv[oE + oF] : 0;
+                }
+                if ((Ey + Em) >= 15) {
+                    const Eym = 15 + parseFloat(((Ey + Em) - 15).toFixed(2)) * 2;
+                    q_money = (Eym >= 50) ? 50 * avgSalary3y : Eym * avgSalary3y;
+                } else {
+                    q_money = (Ey + Em) * avgSalary3y;
+                }
+            }
+            document.getElementById('resOnce').innerText = Math.round(q_money).toLocaleString() + " 元";
+            // 98年前年資靜態提示（固定顯示，同官方）
+            const msgOnceEl = document.getElementById('msgOnce');
+            msgOnceEl.innerHTML = '📌 98 年 1 月 1 日前有保險年資者，始可請領一次請領老年給付。';
+            msgOnceEl.classList.remove('hidden');
+        }
+
+        // ═══════════════════════════════════
+        // B. 老年年金給付
+        // ═══════════════════════════════════
+        let oldpayCal = true;
+        const msgOldPayEl = document.getElementById('msgOldPay');
+
+        // 判斷一：提前超過5年
+        if ((legalAge - claimY) > 5) {
+            oldpayCal = false;
+            msgOldPayEl.innerHTML = '❌ 不符合老年年金給付條件【最多只能提前 5 年，請領減額老年年金】。';
+            msgOldPayEl.classList.remove('hidden');
+        }
+        // 判斷二：年資不足15年
+        else if (totalYear < 15) {
+            oldpayCal = false;
+            msgOldPayEl.innerHTML = '❌ 不符合老年年金給付條件【保險年資需滿 15 年】。';
+            msgOldPayEl.classList.remove('hidden');
+        }
+
+        if (oldpayCal) {
+            const f1 = Math.round(((avgSalary60 * seniorityDecimal * 0.00775) + 3000) * finalMultiplier);
+            const f2 = Math.round((avgSalary60 * seniorityDecimal * 0.0155) * finalMultiplier);
+            document.getElementById('resFormula1').innerText = f1.toLocaleString();
+            document.getElementById('resFormula2').innerText = f2.toLocaleString();
+            document.getElementById('formula1Container').classList.toggle('is-winner', f1 >= f2);
+            document.getElementById('formula2Container').classList.toggle('is-winner', f2 > f1);
+            // 儲存給後續使用
+            window._f1 = f1; window._f2 = f2;
+        } else {
+            document.getElementById('resFormula1').innerText = '--';
+            document.getElementById('resFormula2').innerText = '--';
+            document.getElementById('formula1Container').classList.remove('is-winner');
+            document.getElementById('formula2Container').classList.remove('is-winner');
+            window._f1 = 0; window._f2 = 0;
+        }
+
+        // ═══════════════════════════════════
+        // C. 勞工退休金月退
+        // ═══════════════════════════════════
+        let monthlyFund = 0;
         const lifeExp = getLifeExpectancy(claimY);
         const lifeExpDisplay = lifeExp ? lifeExp.display : '--';
-        const monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.precise) : 0;
-        document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
-        document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
+
+        // 判斷：年資不足15年 → A類，不計算
+        if (totalYear < 15) {
+            document.getElementById('resMonthlyPension').innerText = '--';
+            document.getElementById('resQuarterlyPension').innerText = '--';
+            const msgPensionEl = document.getElementById('msgPension');
+            msgPensionEl.innerHTML = '❌ 工作年資未滿 15 年，不符合請領月退休金條件。';
+            msgPensionEl.classList.remove('hidden');
+        } else {
+            // 未滿60歲：使用使用者填入的預估請領年限
+            if (claimY < 60) {
+                const pensionYearVal = parseInt(document.getElementById('txbPensionYear').value) || 0;
+                if (pensionYearVal < 1) {
+                    alert("未滿 60 歲請填寫「預估請領年限」。");
+                    return;
+                }
+                monthlyFund = Math.round(
+                    (() => {
+                        if (pensionYearVal <= 0 || fund <= 0) return 0;
+                        const a = 1 - Math.pow(1 / (1 + PENSION_RATE), pensionYearVal);
+                        const b = Math.pow((1 + PENSION_RATE), 1 / 12);
+                        const c = 12 * (b - 1);
+                        const factor = (a / c) * b;
+                        return fund / factor / 12;
+                    })()
+                );
+                document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
+                document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
+                // B類警語：照算但提示
+                document.getElementById('msgPensionUnder60').classList.remove('hidden');
+            } else {
+                // 60歲以上：用精算餘命表
+                monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.precise) : 0;
+                document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
+                document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
+            }
+        }
+
         document.getElementById('resClaimAge').innerText = claimY + " 歲";
         document.getElementById('resLife').innerText = lifeExpDisplay + " 年";
 
+        const f1Final = window._f1 || 0;
+        const f2Final = window._f2 || 0;
+        const betterLabo = Math.max(f1Final, f2Final);
+        const onceAmt = document.getElementById('resOnce').innerText;
+
         dataFromStage1 = {
             laboMonthly: betterLabo, pensionMonthly: monthlyFund, claimAge: claimY,
-            f1, f2, onceAmt, lifeExp: lifeExpDisplay,
+            f1: f1Final, f2: f2Final, onceAmt, lifeExp: lifeExpDisplay,
             seniority: seniorityStr,
             birthYear,
             avgSalary60: rawSalary60, avgSalary60Insured: avgSalary60,
