@@ -459,7 +459,10 @@
 
                 <!-- 勞工退休金 -->
                 <div class="border rounded-lg shadow-sm">
-                    <h3 class="text-xs font-bold text-bli-green px-3 py-1.5 border-b border-gray-200 bg-orange-50/60">勞工退休金</h3>
+                    <h3 class="text-xs font-bold text-bli-green px-3 py-1.5 border-b border-gray-200 bg-orange-50/60 flex items-center justify-between gap-2">
+                        <span>勞工退休金</span>
+                        <span id="msgPensionUnder60" style="display:none; font-size:10px; font-weight:bold; color:#c2410c;">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</span>
+                    </h3>
                     <div class="p-3">
                         <div class="grid grid-cols-2 gap-3 mb-3">
                             <div class="bg-white p-2 rounded border border-gray-100 shadow-sm flex items-center justify-between gap-2">
@@ -494,8 +497,6 @@
                         </div>
                         <!-- 勞退警語區 -->
                         <div id="msgPension" class="hidden mt-2 text-xs font-bold text-red-700 bg-red-100 border border-red-400 rounded px-3 py-2"></div>
-                        <!-- 勞退未滿60歲附加說明（B類：照算但加警語） -->
-                        <div id="msgPensionUnder60" class="hidden" style="margin-top:8px; padding:8px 12px; font-size:12px; font-weight:bold; color:#c2410c; background:#fff7ed; border:2px solid #f97316; border-radius:6px;">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
                     </div>
                 </div>
 
@@ -1294,6 +1295,16 @@
         }
         // 60歲前年資上限99年
         if (yB > 99) { alert("滿60歲前保險年資不可超過99年。"); return; }
+
+        // 未滿60歲時，預估請領年限為必填
+        if (claimY < 60) {
+            const pensionYearVal = parseInt(document.getElementById('txbPensionYear').value) || 0;
+            if (pensionYearVal < 1) {
+                alert("未滿 60 歲請填寫「預估請領年限」後，才能進行試算。");
+                document.getElementById('txbPensionYear').focus();
+                return;
+            }
+        }
 
         // ⚠️ [待討論 - 第四項] 目前假設使用者輸入「月薪資總額」並自動換算至投保薪資級距
         // 官方邏輯是使用者直接填入已知的「月投保薪資」，不做分級換算
