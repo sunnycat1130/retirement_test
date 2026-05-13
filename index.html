@@ -532,7 +532,7 @@
                 <div class="planning-card border-l-4 border-l-blue-700">
                     <h3 class="text-base font-black text-red-600 mb-1.5 italic underline underline-offset-4">現有：現在我已經準備了多少？</h3>
                     <ul class="space-y-1.5 font-bold text-slate-700">
-                        <li>● 勞保年金每月 <span id="imgLaboMonthly" class="text-blue-800 font-black text-base">OOO</span></li>
+                        <li>● <span id="imgLaboLabel">勞保年金每月</span> <span id="imgLaboMonthly" class="text-blue-800 font-black text-base">OOO</span></li>
                         <li>● 勞退休金每季 <span id="imgPensionQuart" class="text-blue-800 font-black text-base">XXX</span></li>
                         <li class="flex items-center justify-between"><span>● 其他已準備 <span class="text-[9px] font-normal block opacity-50">(存款/定存/股票...)</span></span><div class="flex items-center gap-1"><input type="number" id="personalAsset" oninput="updatePlanningLogic()" placeholder="0" class="w-16 underline-input text-center text-blue-700 text-lg bg-transparent"><span>萬</span></div></li>
                     </ul>
@@ -939,8 +939,8 @@
                     <div class="rpt-section-title">現有資源</div>
                     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;">
                         <div class="rpt-demand-item">
-                            <span class="rpt-demand-item-label">● 勞保年金（月）</span>
-                            <span class="rpt-demand-item-val" style="color:#1d4ed8;"><span id="rpt-e-labo">0</span> 元</span>
+                            <span class="rpt-demand-item-label" id="rpt-e-labo-label">● 勞保年金（月）</span>
+                            <span class="rpt-demand-item-val" style="color:#1d4ed8;"><span id="rpt-e-labo">0</span> <span id="rpt-e-labo-unit">元</span></span>
                         </div>
                         <div class="rpt-demand-item">
                             <span class="rpt-demand-item-label">● 勞退退休金（季）</span>
@@ -1496,7 +1496,16 @@
         if (dataFromStage1.claimAge === 0) { alert("請先完成第一階段試算。"); return; }
         hideAll(); document.getElementById('stage2').classList.remove('hidden'); setActive('tab2');
         document.getElementById('imgRetireAge').innerText = dataFromStage1.claimAge;
-        document.getElementById('imgLaboMonthly').innerText = dataFromStage1.laboMonthly.toLocaleString();
+        // 勞保給付：有年金顯示月金額，無年金顯示一次給付
+        const hasAnnuity = (dataFromStage1.f1 > 0 || dataFromStage1.f2 > 0);
+        if (hasAnnuity) {
+            document.getElementById('imgLaboLabel').innerText = '勞保年金每月';
+            document.getElementById('imgLaboMonthly').innerText = dataFromStage1.laboMonthly.toLocaleString() + ' 元';
+        } else {
+            document.getElementById('imgLaboLabel').innerText = '勞保一次給付';
+            const onceStr = (dataFromStage1.onceAmt || '').replace(/[^\d]/g, '');
+            document.getElementById('imgLaboMonthly').innerText = (parseInt(onceStr) || 0).toLocaleString() + ' 元';
+        }
         document.getElementById('imgPensionQuart').innerText = (dataFromStage1.pensionMonthly * 3).toLocaleString();
         updatePlanningLogic();
     }
@@ -1626,8 +1635,17 @@
         setText('rpt-salary60', dataFromStage1.avgSalary60Insured ? dataFromStage1.avgSalary60Insured.toLocaleString() + ' 元（投保薪資）' : '--');
         setText('rpt-salary3y', dataFromStage1.avgSalary3yInsured ? dataFromStage1.avgSalary3yInsured.toLocaleString() + ' 元（投保薪資）' : '--');
         setText('rpt-fund', dataFromStage1.fund ? dataFromStage1.fund.toLocaleString() : '--');
-        setText('rpt-f1', dataFromStage1.f1 ? dataFromStage1.f1.toLocaleString() : '--');
-        setText('rpt-f2', dataFromStage1.f2 ? dataFromStage1.f2.toLocaleString() : '--');
+
+        // 年金欄位：無資格時顯示說明文字
+        const hasAnnuity = (dataFromStage1.f1 > 0 || dataFromStage1.f2 > 0);
+        if (hasAnnuity) {
+            setText('rpt-f1', dataFromStage1.f1 ? dataFromStage1.f1.toLocaleString() : '--');
+            setText('rpt-f2', dataFromStage1.f2 ? dataFromStage1.f2.toLocaleString() : '--');
+        } else {
+            setText('rpt-f1', '不符合年金給付條件');
+            setText('rpt-f2', '不符合年金給付條件');
+        }
+
         setText('rpt-once', dataFromStage1.onceAmt || '--');
         setText('rpt-monthly-pension', dataFromStage1.pensionMonthly ? dataFromStage1.pensionMonthly.toLocaleString() : '--');
         setText('rpt-quarterly-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '--');
@@ -1670,8 +1688,18 @@
         setText('rpt-d-dream', stage2Data.dream || 0);
         setText('rpt-d-other', stage2Data.otherN || 0);
         setText('rpt-d-total', need.toLocaleString());
-        setText('rpt-e-labo', dataFromStage1.laboMonthly.toLocaleString());
-        setText('rpt-e-pension', (dataFromStage1.pensionMonthly * 3).toLocaleString());
+        // 勞保給付：有年金 → 月金額；無年金 → 一次給付金額
+        if (hasAnnuity) {
+            setText('rpt-e-labo-label', '● 勞保年金（月）');
+            setText('rpt-e-labo', dataFromStage1.laboMonthly ? dataFromStage1.laboMonthly.toLocaleString() : '0');
+            setText('rpt-e-labo-unit', '元／月');
+        } else {
+            setText('rpt-e-labo-label', '● 勞保一次給付');
+            const onceStr = (dataFromStage1.onceAmt || '').replace(/[^\d]/g, '');
+            setText('rpt-e-labo', (parseInt(onceStr) || 0).toLocaleString());
+            setText('rpt-e-labo-unit', '元（一次）');
+        }
+        setText('rpt-e-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '0');
         setText('rpt-e-gov-total', (stage2Data.govTotal || 0).toLocaleString());
         setText('rpt-e-personal', (stage2Data.personal || 0).toLocaleString());
         setText('rpt-e-total', existing.toLocaleString());
@@ -1742,8 +1770,17 @@
         setText('rpt-salary60', dataFromStage1.avgSalary60Insured ? dataFromStage1.avgSalary60Insured.toLocaleString() + ' 元' : '--');
         setText('rpt-salary3y', dataFromStage1.avgSalary3yInsured ? dataFromStage1.avgSalary3yInsured.toLocaleString() + ' 元' : '--');
         setText('rpt-fund', dataFromStage1.fund ? dataFromStage1.fund.toLocaleString() : '--');
-        setText('rpt-f1', dataFromStage1.f1 ? dataFromStage1.f1.toLocaleString() : '--');
-        setText('rpt-f2', dataFromStage1.f2 ? dataFromStage1.f2.toLocaleString() : '--');
+
+        // 年金欄位：無資格時顯示說明文字
+        const hasAnnuityP = (dataFromStage1.f1 > 0 || dataFromStage1.f2 > 0);
+        if (hasAnnuityP) {
+            setText('rpt-f1', dataFromStage1.f1 ? dataFromStage1.f1.toLocaleString() : '--');
+            setText('rpt-f2', dataFromStage1.f2 ? dataFromStage1.f2.toLocaleString() : '--');
+        } else {
+            setText('rpt-f1', '不符合年金給付條件');
+            setText('rpt-f2', '不符合年金給付條件');
+        }
+
         setText('rpt-once', dataFromStage1.onceAmt || '--');
         setText('rpt-monthly-pension', dataFromStage1.pensionMonthly ? dataFromStage1.pensionMonthly.toLocaleString() : '--');
         setText('rpt-quarterly-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '--');
@@ -1784,7 +1821,17 @@
         setText('rpt-d-dream', stage2Data.dream || 0);
         setText('rpt-d-other', stage2Data.otherN || 0);
         setText('rpt-d-total', need.toLocaleString());
-        setText('rpt-e-labo', dataFromStage1.laboMonthly ? dataFromStage1.laboMonthly.toLocaleString() : '0');
+        // 勞保給付：有年金 → 月金額；無年金 → 一次給付金額
+        if (hasAnnuityP) {
+            setText('rpt-e-labo-label', '● 勞保年金（月）');
+            setText('rpt-e-labo', dataFromStage1.laboMonthly ? dataFromStage1.laboMonthly.toLocaleString() : '0');
+            setText('rpt-e-labo-unit', '元／月');
+        } else {
+            setText('rpt-e-labo-label', '● 勞保一次給付');
+            const onceStrP = (dataFromStage1.onceAmt || '').replace(/[^\d]/g, '');
+            setText('rpt-e-labo', (parseInt(onceStrP) || 0).toLocaleString());
+            setText('rpt-e-labo-unit', '元（一次）');
+        }
         setText('rpt-e-pension', dataFromStage1.pensionMonthly ? (dataFromStage1.pensionMonthly * 3).toLocaleString() : '0');
         setText('rpt-e-gov-total', (stage2Data.govTotal || 0).toLocaleString());
         setText('rpt-e-personal', (stage2Data.personal || 0).toLocaleString());
