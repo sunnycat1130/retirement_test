@@ -1536,7 +1536,21 @@
         const otherN = parseFloat(document.getElementById('otherNeed').value) || 0;
         const totalDemandVal = Math.round(mLiving + loan + med + dream + otherN);
 
-        const govTotal = (dataFromStage1.laboMonthly + dataFromStage1.pensionMonthly) * 12 * yearsUntil85 / 10000;
+        // 勞保給付：有年金（f1或f2 > 0）→ 用擇優月金額年化至85歲；無年金 → 直接用一次給付金額
+        const hasAnnuity = (dataFromStage1.f1 > 0 || dataFromStage1.f2 > 0);
+        let laboGov = 0;
+        if (hasAnnuity) {
+            // 擇優給付月金額 × 12個月 × 存活年數，轉萬元
+            laboGov = dataFromStage1.laboMonthly * 12 * yearsUntil85 / 10000;
+        } else {
+            // 一次給付：直接取金額（已是元），轉萬元
+            const onceStr = (dataFromStage1.onceAmt || '').replace(/[^\d]/g, '');
+            laboGov = (parseInt(onceStr) || 0) / 10000;
+        }
+        // 勞退：季發（月退×3）×4季 × 存活年數，轉萬元
+        const laboAnnual = dataFromStage1.laboMonthly * 12;
+        const pensionAnnual = dataFromStage1.pensionMonthly * 3 * 4;
+        const govTotal = laboGov + (pensionAnnual * yearsUntil85 / 10000);
         const personal = parseFloat(document.getElementById('personalAsset').value) || 0;
         const totalExistingVal = Math.round(govTotal + personal);
         const gapVal = Math.max(0, totalDemandVal - totalExistingVal);
