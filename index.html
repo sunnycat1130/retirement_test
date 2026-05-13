@@ -389,8 +389,8 @@
                         </div>
                         <!-- 未滿60歲時顯示：預估請領年限（同列右側） -->
                         <div id="divPensionYear" class="hidden flex-1">
-                            <label class="label-text text-orange-600 font-bold">勞工退休金月退休金試算：</label>
-                            <input type="number" id="txbPensionYear" placeholder="預估請領年限（年）" class="input-box border-orange-400" min="1">
+                            <label class="label-text text-orange-600 font-bold">預估請領年限：</label>
+                            <input type="number" id="txbPensionYear" placeholder="年" class="input-box border-orange-400" min="1">
                         </div>
                     </div>
                     <p class="mt-1 text-[10px] text-gray-400">💡 可至<a href="https://www.bli.gov.tw" target="_blank" class="text-bli-green underline">勞保局網站</a>或 <a href="https://edesk.bli.gov.tw/me/#/home" target="_blank" class="text-bli-green underline font-bold">e 化服務系統</a>查詢個人專戶餘額</p>
@@ -415,14 +415,13 @@
                         </div>
                         <div class="flex-1 border-l border-gray-200 pl-3">
                             <div class="text-[9px] text-gray-400 leading-relaxed">領取一筆總金額，適合需要整筆資金或年資較短者</div>
+                            <div id="msgOnce" class="hidden text-[9px] font-bold text-orange-600 leading-relaxed mt-0.5"></div>
                         </div>
                         <div class="flex-shrink-0 text-right">
                             <div class="text-[9px] text-gray-400 mb-0.5">給付金額</div>
                             <div id="resOnce" class="text-lg font-black text-gray-800">--</div>
                         </div>
                     </div>
-                    <!-- 一次金警語區 -->
-                    <div id="msgOnce" class="hidden px-3 py-1.5 text-[10px] text-amber-700 bg-amber-50 border-t border-amber-200"></div>
 
                     <!-- 選擇二：年金 -->
                     <div class="px-3 py-2.5 bg-white">
@@ -431,7 +430,10 @@
                                 <div class="text-[9px] font-black text-gray-400 uppercase">選擇二</div>
                                 <div class="text-[10px] font-black text-gray-600 leading-tight mt-0.5">年金給付</div>
                             </div>
-                            <div class="text-[9px] text-gray-400 border-l border-gray-200 pl-3">每月固定領取，兩式由系統自動擇優發給</div>
+                            <div class="flex-1 border-l border-gray-200 pl-3 flex items-center justify-between gap-2">
+                                <div class="text-[9px] text-gray-400 flex-shrink-0">兩式由系統自動擇優發給</div>
+                                <div id="msgOldPay" class="hidden text-[9px] font-bold text-red-600 text-right"></div>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div id="formula1Container" class="rounded-md p-2 border transition-all">
@@ -449,18 +451,22 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- 年金警語區 -->
-                        <div id="msgOldPay" class="hidden mt-2 text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5"></div>
                     </div>
                 </div>
 
                 <!-- 勞工退休金 -->
-                <div class="border rounded-lg overflow-hidden shadow-sm">
+                <div class="border rounded-lg shadow-sm">
                     <h3 class="text-xs font-bold text-bli-green px-3 py-1.5 border-b border-gray-200 bg-orange-50/60">勞工退休金</h3>
                     <div class="p-3">
                         <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div class="bg-white p-2 rounded border border-gray-100 shadow-sm"><label class="label-text text-gray-500">預計申請年齡</label><div id="resClaimAge" class="text-sm font-bold text-gray-800">--</div></div>
-                            <div class="bg-white p-2 rounded border border-gray-100 shadow-sm"><label class="label-text text-gray-500">平均餘命</label><div id="resLife" class="text-sm font-bold text-gray-800">--</div></div>
+                            <div class="bg-white p-2 rounded border border-gray-100 shadow-sm flex items-center justify-between gap-2">
+                                <label class="label-text text-gray-500 mb-0">預計申請年齡</label>
+                                <div id="resClaimAge" class="text-sm font-bold text-gray-800">--</div>
+                            </div>
+                            <div class="bg-white p-2 rounded border border-gray-100 shadow-sm flex items-center justify-between gap-2">
+                                <label class="label-text text-gray-500 mb-0">平均餘命</label>
+                                <div id="resLife" class="text-sm font-bold text-gray-800">--</div>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <!-- 月退（參考用，淡化） -->
@@ -484,9 +490,9 @@
                             </div>
                         </div>
                         <!-- 勞退警語區 -->
-                        <div id="msgPension" class="hidden mt-2 text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5"></div>
+                        <div id="msgPension" class="hidden mt-2 text-xs font-bold text-red-700 bg-red-100 border border-red-400 rounded px-3 py-2"></div>
                         <!-- 勞退未滿60歲附加說明（B類：照算但加警語） -->
-                        <div id="msgPensionUnder60" class="hidden mt-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
+                        <div id="msgPensionUnder60" class="hidden mt-2 text-xs font-bold text-orange-700 bg-orange-100 border border-orange-400 rounded px-3 py-2">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
                     </div>
                 </div>
 
@@ -1437,6 +1443,8 @@
                 );
                 document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
                 document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
+                // 平均餘命顯示使用者填入的年限
+                document.getElementById('resLife').innerText = pensionYearVal + ' 年';
                 // B類警語：照算但提示
                 document.getElementById('msgPensionUnder60').classList.remove('hidden');
             } else {
@@ -1448,7 +1456,9 @@
         }
 
         document.getElementById('resClaimAge').innerText = claimY + " 歲";
-        document.getElementById('resLife').innerText = lifeExpDisplay + " 年";
+        if (claimY >= 60) {
+            document.getElementById('resLife').innerText = lifeExpDisplay + " 年";
+        }
 
         const f1Final = window._f1 || 0;
         const f2Final = window._f2 || 0;
