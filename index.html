@@ -399,7 +399,10 @@
             </div>
         </div>
         <div class="lg:w-1/2 p-4 bg-white">
-            <div class="section-header text-bli-orange border-bli-orange">試算預估結果</div>
+            <div class="section-header text-bli-orange border-bli-orange flex items-baseline justify-between gap-2">
+                <span>試算預估結果</span>
+                <span class="text-[9px] text-gray-400 font-normal">※ 試算結果與勞保局官網若有 1～2 元內的微小差異，係因四捨五入時機不同所致，不影響實際參考價值。</span>
+            </div>
             <div id="placeholderMsg" class="py-24 text-center text-gray-400 font-bold no-print">📊 請於左側輸入資料後點擊「開始試算」</div>
             <div id="realResults" class="hidden space-y-2">
 
@@ -492,12 +495,11 @@
                         <!-- 勞退警語區 -->
                         <div id="msgPension" class="hidden mt-2 text-xs font-bold text-red-700 bg-red-100 border border-red-400 rounded px-3 py-2"></div>
                         <!-- 勞退未滿60歲附加說明（B類：照算但加警語） -->
-                        <div id="msgPensionUnder60" class="hidden mt-2 text-xs font-bold text-orange-700 bg-orange-100 border border-orange-400 rounded px-3 py-2">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
+                        <div id="msgPensionUnder60" class="hidden" style="margin-top:8px; padding:8px 12px; font-size:12px; font-weight:bold; color:#c2410c; background:#fff7ed; border:2px solid #f97316; border-radius:6px;">⚠️ 未滿 60 歲須符合勞工退休金條例第 24 條之 2 規定，始可提前請領勞工退休金。</div>
                     </div>
                 </div>
 
-                <p class="text-[10px] text-gray-400 text-center pt-1">※ 試算結果與勞保局官網若有 1～2 元內的微小差異，係因四捨五入時機不同所致，不影響實際參考價值。</p>
-                <div class="pt-1 no-print"><button onclick="switchToStage2()" class="w-full bg-bli-orange text-white py-3 rounded-xl font-bold text-base hover:scale-[1.01] transition-transform shadow-lg flex items-center justify-center gap-2"><span>進入第二階段：退休缺口深度規劃</span><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button></div>
+                <div class="pt-0.5 no-print"><button onclick="switchToStage2()" class="w-full bg-bli-orange text-white py-1.5 rounded-xl font-bold text-xs hover:scale-[1.01] transition-transform shadow-lg flex items-center justify-center gap-2"><span>進入第二階段：退休缺口深度規劃</span><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button></div>
             </div>
         </div>
     </div>
@@ -1303,11 +1305,12 @@
         document.getElementById('realResults').classList.remove('hidden');
 
         // 清空所有警語
-        ['msgOnce','msgOldPay','msgPension','msgPensionUnder60'].forEach(id => {
+        ['msgOnce','msgOldPay','msgPension'].forEach(id => {
             const el = document.getElementById(id);
             el.classList.add('hidden');
             el.innerHTML = '';
         });
+        document.getElementById('msgPensionUnder60').style.display = 'none';
 
         // ── 年資計算 ──
         const totalMonthsAll = mB + mA;
@@ -1446,7 +1449,7 @@
                 // 平均餘命顯示使用者填入的年限
                 document.getElementById('resLife').innerText = pensionYearVal + ' 年';
                 // B類警語：照算但提示
-                document.getElementById('msgPensionUnder60').classList.remove('hidden');
+                document.getElementById('msgPensionUnder60').style.display = 'block';
             } else {
                 // 60歲以上：用精算餘命表
                 monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.precise) : 0;
