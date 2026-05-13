@@ -361,11 +361,6 @@
                             <select id="claimAgeMonth" class="input-box"><script>for(let i=0; i<=11; i++) document.write(`<option value="${i}">${i < 10 ? '0'+i : i}</option>`);</script></select>
                         </div>
                         <div id="legalAgeHint" class="mt-1 text-[10px] font-bold text-bli-green bg-green-50 border border-green-200 rounded px-2 py-0.5 hidden">📌 您的法定請領年齡為 <span id="legalAgeVal">--</span> 歲</div>
-                        <!-- 未滿60歲時顯示：預估請領年限 -->
-                        <div id="divPensionYear" class="hidden mt-1.5">
-                            <label class="label-text text-orange-600 font-bold">預估請領年限（未滿60歲請填）：</label>
-                            <input type="number" id="txbPensionYear" placeholder="年" class="input-box border-orange-400" min="1">
-                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -387,8 +382,17 @@
                     <div class="flex gap-3 pt-2 mt-2 border-t text-xs font-bold"><span>總年資： <span id="dispTotalY" class="text-bli-green">0</span> 年 <span id="dispTotalM" class="text-bli-green">0</span> 月</span><input type="hidden" id="totalYears"><input type="hidden" id="totalMonths"></div>
                 </div>
                 <div>
-                    <label class="label-text font-bold">勞退個人專戶累積金額：</label>
-                    <input type="number" id="pensionFund" placeholder="請輸入金額(元)" class="input-box border-bli-orange">
+                    <div class="flex items-start gap-2">
+                        <div class="flex-1">
+                            <label class="label-text font-bold">勞退個人專戶累積金額：</label>
+                            <input type="number" id="pensionFund" placeholder="請輸入金額(元)" class="input-box border-bli-orange">
+                        </div>
+                        <!-- 未滿60歲時顯示：預估請領年限（同列右側） -->
+                        <div id="divPensionYear" class="hidden flex-1">
+                            <label class="label-text text-orange-600 font-bold">勞工退休金月退休金試算：</label>
+                            <input type="number" id="txbPensionYear" placeholder="預估請領年限（年）" class="input-box border-orange-400" min="1">
+                        </div>
+                    </div>
                     <p class="mt-1 text-[10px] text-gray-400">💡 可至<a href="https://www.bli.gov.tw" target="_blank" class="text-bli-green underline">勞保局網站</a>或 <a href="https://edesk.bli.gov.tw/me/#/home" target="_blank" class="text-bli-green underline font-bold">e 化服務系統</a>查詢個人專戶餘額</p>
                 </div>
                 <div class="flex gap-3 pt-2 no-print"><button onclick="performCalculation()" class="flex-1 bg-bli-orange text-white py-2.5 rounded-lg font-bold hover:brightness-110 shadow-md transition-all">開始試算</button><button onclick="resetAll()" class="w-1/4 bg-gray-400 text-white py-2.5 rounded-lg font-bold hover:bg-gray-500 shadow-md">全部清除</button></div>
