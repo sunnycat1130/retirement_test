@@ -1536,14 +1536,11 @@
         const byEl = document.getElementById('birthYear');
         const hint = document.getElementById('legalAgeHint');
         const valEl = document.getElementById('legalAgeVal');
-        console.log('[updateLegalAge] byEl:', byEl, '| hint:', hint, '| valEl:', valEl);
         const by = parseInt(byEl ? byEl.value : '') || 0;
-        console.log('[updateLegalAge] by值:', by);
         if (!by) { if (hint) hint.style.display = 'none'; return; }
         const age = by <= 46 ? 60 : by == 47 ? 61 : by == 48 ? 62 : by == 49 ? 63 : by == 50 ? 64 : 65;
-        console.log('[updateLegalAge] 法定年齡:', age);
         if (valEl) valEl.innerText = age;
-        if (hint) { hint.style.display = 'block'; console.log('[updateLegalAge] hint display設為block'); }
+        if (hint) hint.style.display = 'block';
     }
 
     function showSelfPrep() {
