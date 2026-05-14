@@ -356,10 +356,12 @@
                     <div>
                         <label class="label-text">出生年度 (民國)：</label>
                         <input type="number" id="birthYear" placeholder="例: 67" class="input-box" oninput="updateLegalAge()">
-                        <div id="legalAgeHint" style="display:none; margin-top:4px; font-size:10px; font-weight:700; color:#00847b; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; padding:2px 8px;">📌 您的法定請領年齡為 <span id="legalAgeVal">--</span> 歲</div>
                     </div>
                     <div>
-                        <label class="label-text">預計請領歲 / 月：</label>
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="label-text mb-0">預計請領歲 / 月：</label>
+                            <div id="legalAgeHint" style="display:none; font-size:10px; font-weight:700; color:#00847b; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; padding:2px 8px; white-space:nowrap;">📌 法定請領年齡 <span id="legalAgeVal">--</span> 歲</div>
+                        </div>
                         <div class="grid grid-cols-2 gap-1.5">
                             <input type="number" id="claimAgeYear" placeholder="歲" class="input-box" oninput="onClaimAgeInput()">
                             <select id="claimAgeMonth" class="input-box"><script>for(let i=0; i<=11; i++) document.write(`<option value="${i}">${i < 10 ? '0'+i : i}</option>`);</script></select>
@@ -1301,13 +1303,16 @@
 
         // 60歲以上：60歲後年資年數為必填（同官方邏輯，空白須報錯）
         if (claimY >= 60) {
-            const after60Val = document.getElementById('yearsAfter60').value;
-            if (after60Val === '' || after60Val === null) {
+            const after60Val = document.getElementById('yearsAfter60').value.trim();
+            if (after60Val === '') {
                 alert("請填寫「滿 60 歲後之保險年資」年數（無年資請填 0）。");
                 document.getElementById('yearsAfter60').focus();
                 return;
             }
         }
+
+        // 未滿60歲時，預估請領年限為必填
+        if (claimY < 60) {
             const pensionYearVal = parseInt(document.getElementById('txbPensionYear').value) || 0;
             if (pensionYearVal < 1) {
                 alert("未滿 60 歲請填寫「預估請領年限」後，才能進行試算。");
@@ -1528,12 +1533,17 @@
     function setActive(id) { document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
     function updateLegalAge() {
-        const by = parseInt(document.getElementById('birthYear').value) || 0;
+        const byEl = document.getElementById('birthYear');
         const hint = document.getElementById('legalAgeHint');
-        if (!by) { hint.style.display = 'none'; return; }
+        const valEl = document.getElementById('legalAgeVal');
+        console.log('[updateLegalAge] byEl:', byEl, '| hint:', hint, '| valEl:', valEl);
+        const by = parseInt(byEl ? byEl.value : '') || 0;
+        console.log('[updateLegalAge] by值:', by);
+        if (!by) { if (hint) hint.style.display = 'none'; return; }
         const age = by <= 46 ? 60 : by == 47 ? 61 : by == 48 ? 62 : by == 49 ? 63 : by == 50 ? 64 : 65;
-        document.getElementById('legalAgeVal').innerText = age;
-        hint.style.display = 'block';
+        console.log('[updateLegalAge] 法定年齡:', age);
+        if (valEl) valEl.innerText = age;
+        if (hint) { hint.style.display = 'block'; console.log('[updateLegalAge] hint display設為block'); }
     }
 
     function showSelfPrep() {
