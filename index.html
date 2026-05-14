@@ -1296,8 +1296,15 @@
         // 60歲前年資上限99年
         if (yB > 99) { alert("滿60歲前保險年資不可超過99年。"); return; }
 
-        // 未滿60歲時，預估請領年限為必填
-        if (claimY < 60) {
+        // 60歲以上：60歲後年資年數為必填（同官方邏輯，空白須報錯）
+        if (claimY >= 60) {
+            const after60Val = document.getElementById('yearsAfter60').value;
+            if (after60Val === '' || after60Val === null) {
+                alert("請填寫「滿 60 歲後之保險年資」年數（無年資請填 0）。");
+                document.getElementById('yearsAfter60').focus();
+                return;
+            }
+        }
             const pensionYearVal = parseInt(document.getElementById('txbPensionYear').value) || 0;
             if (pensionYearVal < 1) {
                 alert("未滿 60 歲請填寫「預估請領年限」後，才能進行試算。");
@@ -1462,8 +1469,8 @@
                 // B類警語：照算但提示
                 document.getElementById('msgPensionUnder60').style.display = 'block';
             } else {
-                // 60歲以上：用精算餘命表
-                monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.precise) : 0;
+                // 60歲以上：用整數餘命（同官方 fee26_js 邏輯）
+                monthlyFund = lifeExp ? calcMonthlyPension(fund, lifeExp.display) : 0;
                 document.getElementById('resMonthlyPension').innerText = monthlyFund.toLocaleString();
                 document.getElementById('resQuarterlyPension').innerText = (monthlyFund * 3).toLocaleString();
             }
